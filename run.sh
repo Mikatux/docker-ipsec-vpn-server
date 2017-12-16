@@ -271,12 +271,12 @@ EOF
 # Create VPN credentials
 for ((i=0; i<${#VPN_USERS[@]}; ++i));
 do
-  cat > /etc/ppp/chap-secrets <<EOF
+  cat >> /etc/ppp/chap-secrets <<EOF
 "${VPN_USERS[$i]}" l2tpd "${VPN_PASSWORDS[$i]}" *
 EOF
 
   VPN_PASSWORD_ENC=$(openssl passwd -1 "${VPN_PASSWORDS[$i]}")
-  cat > /etc/ipsec.d/passwd <<EOF
+  cat >> /etc/ipsec.d/passwd <<EOF
 ${VPN_USERS[$i]}:$VPN_PASSWORD_ENC:xauth-psk
 EOF
 done
