@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Docker script to configure and start an IPsec VPN server
 #
@@ -46,47 +46,116 @@ ip link delete dummy0 >/dev/null 2>&1
 
 mkdir -p /opt/src
 vpn_env="/opt/src/vpn-gen.env"
-if [ -z "$VPN_IPSEC_PSK" ] && [ -z "$VPN_USER" ] && [ -z "$VPN_PASSWORD" ]; then
-  if [ -f "$vpn_env" ]; then
+
+if [ -f "$vpn_env" ]; then
     echo
     echo "Retrieving previously generated VPN credentials..."
     . "$vpn_env"
-  else
-    echo
-    echo "VPN credentials not set by user. Generating random PSK and password..."
-    VPN_IPSEC_PSK="$(LC_CTYPE=C tr -dc 'A-HJ-NPR-Za-km-z2-9' < /dev/urandom | head -c 16)"
-    VPN_USER=vpnuser
-    VPN_PASSWORD="$(LC_CTYPE=C tr -dc 'A-HJ-NPR-Za-km-z2-9' < /dev/urandom | head -c 16)"
-
-    echo "VPN_IPSEC_PSK=$VPN_IPSEC_PSK" > "$vpn_env"
-    echo "VPN_USER=$VPN_USER" >> "$vpn_env"
-    echo "VPN_PASSWORD=$VPN_PASSWORD" >> "$vpn_env"
-    chmod 600 "$vpn_env"
-  fi
 fi
+
+if [ -z "$VPN_IPSEC_PSK" ]; then
+    echo "Generating random PSK"
+    VPN_IPSEC_PSK="$(LC_CTYPE=C tr -dc 'A-HJ-NPR-Za-km-z2-9' < /dev/urandom | head -c 16)"
+fi
+#Converting input to array
+IFS=";"
+VPN_USERS=($VPN_USERS)
+VPN_PASSWORDS=($VPN_PASSWORDS)
+if [ ${#VPN_USERS[@]} -lt 1 ]; then
+  echo "Generating default vpnuser and password "
+  VPN_USERS+=(vpnuser)
+  VPN_PASSWORDS+=("$(LC_CTYPE=C tr -dc 'A-HJ-NPR-Za-km-z2-9' < /dev/urandom | head -c 16)")
+  PASSWORD_GENERATED=true
+elif [  ${#VPN_PASSWORDS[@]} != ${#VPN_USERS[@]} ]; then
+  echo "Generating password"
+  unset VPN_PASSWORDS
+
+  for ((i=0; i<${#VPN_USERS[@]}; ++i));
+  do
+    VPN_PASSWORDS+=("$(LC_CTYPE=C tr -dc 'A-HJ-NPR-Za-km-z2-9' < /dev/urandom | head -c 16)")
+  done
+  PASSWORD_GENERATED=true
+
+fi
+
+# TODO convert array to string with ';''
+
+# echo "VPN_IPSEC_PSK=$VPN_IPSEC_PSK" > "$vpn_env"
+# echo "VPN_USER=$VPN_USERS" >> "$vpn_env"
+# echo "VPN_PASSWORD=$VPN_PASSWORDS" >> "$vpn_env"
+# chmod 600 "$vpn_env"
+
 
 # Remove whitespace and quotes around VPN variables, if any
 VPN_IPSEC_PSK="$(nospaces "$VPN_IPSEC_PSK")"
 VPN_IPSEC_PSK="$(noquotes "$VPN_IPSEC_PSK")"
-VPN_USER="$(nospaces "$VPN_USER")"
-VPN_USER="$(noquotes "$VPN_USER")"
-VPN_PASSWORD="$(nospaces "$VPN_PASSWORD")"
-VPN_PASSWORD="$(noquotes "$VPN_PASSWORD")"
 
-if [ -z "$VPN_IPSEC_PSK" ] || [ -z "$VPN_USER" ] || [ -z "$VPN_PASSWORD" ]; then
+for ((i=0; i<${#VPN_USERS[@]}; ++i));
+do
+  VPN_USERS[$i]="$(nospaces "${VPN_USERS[$i]}")"
+  VPN_USERS[$i]="$(noquotes "${VPN_USERS[$i]}")"
+
+  VPN_PASSWORDS[$i]="$(nospaces "${VPN_PASSWORDS[$i]}")"
+  VPN_PASSWORDS[$i]="$(noquotes "${VPN_PASSWORDS[$i]}")"
+done
+
+#check if user and password is not an empty string
+unset VPN_USERS_TMP
+for user in "${VPN_USERS[@]}"
+do 
+  if test "$user";then
+    VPN_USERS_TMP+=("$user");
+	fi
+done
+unset VPN_USERS
+
+for user in "${VPN_USERS_TMP[@]}"
+do 
+  VPN_USERS+=("$user");
+done
+
+unset VPN_USERS_TMP
+
+unset VPN_PASSWORDS_TMP
+for password in "${VPN_PASSWORDS[@]}"
+do 
+  if test "$password";then
+  VPN_PASSWORDS_TMP+=("$password");
+	fi
+done
+unset VPN_PASSWORDS
+
+for password in "${VPN_PASSWORDS_TMP[@]}"
+do 
+  VPN_PASSWORDS+=("$password");
+done
+unset VPN_PASSWORDS_TMP
+
+if [ -z "$VPN_IPSEC_PSK" ] || [  ${#VPN_USERS[@]} -lt 1 ] || [ ${#VPN_PASSWORDS[@]} -lt 1 ] || [ ${#VPN_PASSWORDS[@]} != ${#VPN_USERS[@]} ]; then
   exiterr "All VPN credentials must be specified. Edit your 'env' file and re-enter them."
 fi
 
-if printf '%s' "$VPN_IPSEC_PSK $VPN_USER $VPN_PASSWORD" | LC_ALL=C grep -q '[^ -~]\+'; then
+if printf '%s' "$VPN_IPSEC_PSK" | LC_ALL=C grep -q '[^ -~]\+'; then
   exiterr "VPN credentials must not contain non-ASCII characters."
 fi
 
-case "$VPN_IPSEC_PSK $VPN_USER $VPN_PASSWORD" in
+case "$VPN_IPSEC_PSK" in
   *[\\\"\']*)
     exiterr "VPN credentials must not contain these special characters: \\ \" '"
     ;;
 esac
 
+for ((i=0; i<${#VPN_USERS[@]}; ++i));
+do
+  if printf '%s' "${VPN_USERS[$i]} ${VPN_PASSWORDS[$i]}" | LC_ALL=C grep -q '[^ -~]\+'; then
+  exiterr "VPN credentials must not contain non-ASCII characters."
+  fi
+  case "${VPN_USERS[$i]} ${VPN_PASSWORDS[$i]}" in
+    *[\\\"\']*)
+      exiterr "VPN credentials must not contain these special characters: \\ \" '"
+      ;;
+  esac
+done
 echo
 echo 'Trying to auto discover IP of this server...'
 
@@ -200,14 +269,17 @@ connect-delay 5000
 EOF
 
 # Create VPN credentials
-cat > /etc/ppp/chap-secrets <<EOF
-"$VPN_USER" l2tpd "$VPN_PASSWORD" *
+for ((i=0; i<${#VPN_USERS[@]}; ++i));
+do
+  cat > /etc/ppp/chap-secrets <<EOF
+"${VPN_USERS[$i]}" l2tpd "${VPN_PASSWORD[$i]}" *
 EOF
 
-VPN_PASSWORD_ENC=$(openssl passwd -1 "$VPN_PASSWORD")
-cat > /etc/ipsec.d/passwd <<EOF
-$VPN_USER:$VPN_PASSWORD_ENC:xauth-psk
+  VPN_PASSWORD_ENC=$(openssl passwd -1 "${VPN_PASSWORD[$i]}")
+  cat > /etc/ipsec.d/passwd <<EOF
+${VPN_USERS[$i]}:$VPN_PASSWORD_ENC:xauth-psk
 EOF
+done
 
 # Update sysctl settings
 SYST='/sbin/sysctl -e -q -w'
@@ -267,8 +339,20 @@ Connect to your new VPN with these details:
 
 Server IP: $PUBLIC_IP
 IPsec PSK: $VPN_IPSEC_PSK
-Username: $VPN_USER
-Password: $VPN_PASSWORD
+
+EOF
+
+for ((i=0; i<${#VPN_USERS[@]}; ++i));
+do
+  echo "Username: ${VPN_USERS[$i]}"
+  if [ "$PASSWORD_GENERATED" = true ] ; then
+    echo "Password: ${VPN_PASSWORDS[$i]}"
+  else
+    echo "Password: defined by user"  
+  fi
+  echo
+done
+cat <<EOF
 
 Write these down. You'll need them to connect!
 
@@ -276,7 +360,6 @@ Important notes:   https://git.io/vpnnotes2
 Setup VPN clients: https://git.io/vpnclients
 
 ================================================
-
 EOF
 
 # Load IPsec NETKEY kernel module

@@ -45,11 +45,11 @@ This Docker image uses the following three variables, that can be declared in an
 
 ```
 VPN_IPSEC_PSK=your_ipsec_pre_shared_key
-VPN_USER=your_vpn_username
-VPN_PASSWORD=your_vpn_password
+VPN_USERS=your_vpn_username;your_second_vpn_username
+VPN_PASSWORDS=your_vpn_password;your_second_vpn_password
 ```
 
-This will create a user account for VPN login, which can be used by your multiple devices[*](https://github.com/hwdsl2/docker-ipsec-vpn-server#multi-device-note) . The IPsec PSK (pre-shared key) is specified by the `VPN_IPSEC_PSK` environment variable. The VPN username is defined in `VPN_USER`, and VPN password is specified by `VPN_PASSWORD`.
+This will create a user account for VPN login, which can be used by your multiple devices[*](https://github.com/hwdsl2/docker-ipsec-vpn-server#multi-device-note) . The IPsec PSK (pre-shared key) is specified by the `VPN_IPSEC_PSK` environment variable. The VPN usernames are defined in `VPN_USERS`, and VPN passwords are specified by `VPN_PASSWORDS`. If no password are specified it will be randomly generated.
 
 **Note:** In your `env` file, DO NOT put `""` or `''` around values, or add space around `=`. DO NOT use these special characters within values: `\ " '`.
 
@@ -79,7 +79,7 @@ docker run \
 
 ### Retrieve VPN login details
 
-If you did not specify an `env` file in the `docker run` command above, `VPN_USER` will default to `vpnuser` and both `VPN_IPSEC_PSK` and `VPN_PASSWORD` will be randomly generated. To retrieve them, view the container logs:
+If you did not specify an `env` file in the `docker run` command above, `VPN_USERS` will default to `vpnuser` and both `VPN_IPSEC_PSK` and `VPN_PASSWORDS` will be randomly generated. To retrieve them, view the container logs:
 
 ```
 docker logs ipsec-vpn-server
@@ -92,6 +92,7 @@ Connect to your new VPN with these details:
 
 Server IP: your_vpn_server_ip
 IPsec PSK: your_ipsec_pre_shared_key
+
 Username: your_vpn_username
 Password: your_vpn_password
 ```
