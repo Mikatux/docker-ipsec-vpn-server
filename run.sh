@@ -81,8 +81,8 @@ fi
 # TODO convert array to string with ';''
 
 # echo "VPN_IPSEC_PSK=$VPN_IPSEC_PSK" > "$vpn_env"
-# echo "VPN_USER=$VPN_USERS" >> "$vpn_env"
-# echo "VPN_PASSWORD=$VPN_PASSWORDS" >> "$vpn_env"
+# echo "VPN_USERS=$VPN_USERS" >> "$vpn_env"
+# echo "VPN_PASSWORDS=$VPN_PASSWORDS" >> "$vpn_env"
 # chmod 600 "$vpn_env"
 
 
@@ -272,10 +272,10 @@ EOF
 for ((i=0; i<${#VPN_USERS[@]}; ++i));
 do
   cat > /etc/ppp/chap-secrets <<EOF
-"${VPN_USERS[$i]}" l2tpd "${VPN_PASSWORD[$i]}" *
+"${VPN_USERS[$i]}" l2tpd "${VPN_PASSWORDS[$i]}" *
 EOF
 
-  VPN_PASSWORD_ENC=$(openssl passwd -1 "${VPN_PASSWORD[$i]}")
+  VPN_PASSWORD_ENC=$(openssl passwd -1 "${VPN_PASSWORDS[$i]}")
   cat > /etc/ipsec.d/passwd <<EOF
 ${VPN_USERS[$i]}:$VPN_PASSWORD_ENC:xauth-psk
 EOF
